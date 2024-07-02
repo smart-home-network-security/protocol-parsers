@@ -1,0 +1,6 @@
+# Config folders
+.vscode
+
+# Build folders
+build
+bin
