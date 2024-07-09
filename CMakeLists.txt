@@ -4,12 +4,15 @@ cmake_minimum_required(VERSION 3.20)
 # Project name
 project(protocol-parsers C)
 
-# Set project directories
+## Set project directories
 link_directories($ENV{LD_LIBRARY_PATH})
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
 set(INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
+set(LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 set(BIN_DIR ${PROJECT_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${BIN_DIR})
+# Hashmap directory
+set(HASHMAP_DIR ${PROJECT_SOURCE_DIR}/src/hashmap)
 
 # Set compiler flags
 #add_compile_options(-Wall -Werror -Wno-unused-variable -DDEBUG)   # Debug
