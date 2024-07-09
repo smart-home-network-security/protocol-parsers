@@ -15,7 +15,7 @@ jobs:
         run: sudo $GITHUB_WORKSPACE/.ci_scripts/install_packages.sh
 
       - name: Build project with CMake
-        run: $GITHUB_WORKSPACE/build.sh -d $GITHUB_WORKSPACE
+        run: $GITHUB_WORKSPACE/.ci_scripts/build.sh -d $GITHUB_WORKSPACE
 
       - name: Run CUnit tests
         run: $GITHUB_WORKSPACE/.ci_scripts/run_tests.sh
