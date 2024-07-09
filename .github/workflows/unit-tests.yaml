@@ -12,16 +12,16 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install required packages
-        run: sudo $GITHUB_WORKSPACE/.ci_scripts/full-test/install_packages.sh
+        run: sudo $GITHUB_WORKSPACE/.ci_scripts/install_packages.sh
 
       - name: Build project with CMake
         run: $GITHUB_WORKSPACE/build.sh -d $GITHUB_WORKSPACE
 
       - name: Run CUnit tests
-        run: $GITHUB_WORKSPACE/.ci_scripts/full-test/run_tests.sh
+        run: $GITHUB_WORKSPACE/.ci_scripts/run_tests.sh
 
       - name: Run Valgrind on CUnit tests
-        run: $GITHUB_WORKSPACE/.ci_scripts/full-test/run_tests.sh valgrind
+        run: $GITHUB_WORKSPACE/.ci_scripts/run_tests.sh valgrind
 
       - name: Run cppcheck on source files
-        run: $GITHUB_WORKSPACE/.ci_scripts/full-test/run_cppcheck.sh
+        run: $GITHUB_WORKSPACE/.ci_scripts/run_cppcheck.sh
