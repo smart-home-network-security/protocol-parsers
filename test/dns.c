@@ -1,5 +1,6 @@
 /**
- * @file test/dns.c
+ * @file test/parsers/dns.c
+ * @author François De Keersmaeker (francois.dekeersmaeker@uclouvain.be)
  * @brief Unit tests for the DNS parser
  * @date 2022-09-09
  * 
@@ -61,6 +62,27 @@ void compare_rrs(uint16_t count, dns_resource_record_t *actual, dns_resource_rec
             dns_rdata_to_str((expected + i)->rtype, (expected + i)->rdlength, (expected + i)->rdata)
         );
     }
+}
+
+/**
+ * @brief Unit test for the dns_convert_qname function.
+ */
+void test_dns_convert_qname() {
+    // Test parameters
+    char *qname           = "www.google.com";
+    uint8_t qname_len     = strlen(qname);
+    char *expected        = "\3www\6google\3com";
+    uint8_t converted_len = qname_len + 2;
+    
+    // Execute function
+    char *actual = (char*) malloc(converted_len);
+    dns_convert_qname(actual, qname, qname_len);
+
+    // Verify result
+    CU_ASSERT_STRING_EQUAL(actual, expected);
+
+    // Clean up
+    free(actual);
 }
 
 /**
@@ -130,16 +152,16 @@ void test_dns_xiaomi() {
     CU_ASSERT_TRUE(dns_contains_full_domain_name(message.questions, message.header.qdcount, domain_name));
     char *suffix = "api.io.mi.com";
     CU_ASSERT_TRUE(dns_contains_suffix_domain_name(message.questions, message.header.qdcount, suffix, strlen(suffix)));
-    domain_name = "www.example.org";
+    domain_name = "swag.framinem.org";
     CU_ASSERT_FALSE(dns_contains_full_domain_name(message.questions, message.header.qdcount, domain_name));
-    suffix = "example.org";
+    suffix = "framinem.com";
     CU_ASSERT_FALSE(dns_contains_suffix_domain_name(message.questions, message.header.qdcount, suffix, strlen(suffix)));
 
     // Get question from domain name
     domain_name = "business.smartcamera.api.io.mi.com";
     dns_question_t *question_lookup = dns_get_question(message.questions, message.header.qdcount, domain_name);
     CU_ASSERT_PTR_NOT_NULL(question_lookup);
-    domain_name = "www.example.org";
+    domain_name = "swag.framinem.org";
     question_lookup = dns_get_question(message.questions, message.header.qdcount, domain_name);
     CU_ASSERT_PTR_NULL(question_lookup);
 
@@ -150,7 +172,7 @@ void test_dns_xiaomi() {
     CU_ASSERT_EQUAL(ip_list.ip_count, 1);
     CU_ASSERT_STRING_EQUAL(ipv4_net_to_str(ip_list.ip_addresses->value.ipv4), ip_address);
     free(ip_list.ip_addresses);
-    domain_name = "www.example.org";
+    domain_name = "swag.framinem.org";
     ip_list = dns_get_ip_from_name(message.answers, message.header.ancount, domain_name);
     CU_ASSERT_EQUAL(ip_list.ip_count, 0);
     CU_ASSERT_PTR_NULL(ip_list.ip_addresses);
@@ -278,16 +300,16 @@ void test_dns_office() {
     CU_ASSERT_TRUE(dns_contains_full_domain_name(message.questions, message.header.qdcount, domain_name));
     char* suffix = "office.com";
     CU_ASSERT_TRUE(dns_contains_suffix_domain_name(message.questions, message.header.qdcount, suffix, strlen(suffix)));
-    domain_name = "www.example.org";
+    domain_name = "swag.framinem.org";
     CU_ASSERT_FALSE(dns_contains_full_domain_name(message.questions, message.header.qdcount, domain_name));
-    suffix = "example.org";
+    suffix = "framinem.org";
     CU_ASSERT_FALSE(dns_contains_suffix_domain_name(message.questions, message.header.qdcount, suffix, strlen(suffix)));
 
     // Get question from domain name
     domain_name = "outlook.office.com";
     dns_question_t *question_lookup = dns_get_question(message.questions, message.header.qdcount, domain_name);
     CU_ASSERT_PTR_NOT_NULL(question_lookup);
-    domain_name = "www.example.org";
+    domain_name = "swag.framinem.org";
     question_lookup = dns_get_question(message.questions, message.header.qdcount, domain_name);
     CU_ASSERT_PTR_NULL(question_lookup);
 
@@ -305,13 +327,40 @@ void test_dns_office() {
         CU_ASSERT_STRING_EQUAL(ipv4_net_to_str((ip_list.ip_addresses + i)->value.ipv4), ip_addresses[i]);
     }
     free(ip_list.ip_addresses);
-    domain_name = "www.example.org";
+    domain_name = "swag.framinem.org";
     ip_list = dns_get_ip_from_name(message.answers, message.header.ancount, domain_name);
     CU_ASSERT_EQUAL(ip_list.ip_count, 0);
     CU_ASSERT_PTR_NULL(ip_list.ip_addresses);
 
     // Free memory
     dns_free_message(message);
+}
+
+/**
+ * @brief Test the `dns_send_query` and `dns_receive_response` functions.
+ */
+void test_dns_send_receive() {
+    /* Initialize */
+    char *domain_name = "www.google.com";
+    // Open socket
+    int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    CU_ASSERT_TRUE(sockfd > 0);
+    // Server address: network gateway
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(53);
+    server_addr.sin_addr.s_addr = inet_addr("8.8.8.8");
+
+    // Send query for dummy domain name
+    dns_send_query(domain_name, sockfd, &server_addr);
+    dns_message_t dns_message = dns_receive_response(sockfd, &server_addr);
+
+    // Verify DNS response's domain name
+    CU_ASSERT_STRING_EQUAL(dns_message.questions->qname, domain_name);
+
+    // Free memory
+    dns_free_message(dns_message);
 }
 
 /**
@@ -325,8 +374,10 @@ int main(int argc, char const *argv[])
     printf("Test suite: dns\n");
     CU_pSuite suite = CU_add_suite("dns", NULL, NULL);
     // Run tests
+    CU_add_test(suite, "dns-convert-qname", test_dns_convert_qname);
     CU_add_test(suite, "dns-xiaomi", test_dns_xiaomi);
     CU_add_test(suite, "dns-office", test_dns_office);
+    CU_add_test(suite, "dns-send-receive", test_dns_send_receive);
     CU_basic_run_tests();
     CU_cleanup_registry();
     return 0;
