@@ -1,5 +1,6 @@
 /**
- * @file include/dns.h
+ * @file include/parsers/dns.h
+ * @author François De Keersmaeker (francois.dekeersmaeker@uclouvain.be)
  * @brief DNS message parser
  * @date 2022-09-09
  * 
@@ -15,6 +16,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include "packet_utils.h"
 #include "dns_map.h"
@@ -71,7 +77,7 @@ typedef struct dns_header {
  */
 typedef struct dns_question {
     char *qname;
-    dns_rr_type_t qtype;
+    uint16_t qtype;
     uint16_t qclass;
 } dns_question_t;
 
@@ -89,7 +95,7 @@ typedef union {
  */
 typedef struct dns_resource_record {
     char *name;
-    dns_rr_type_t rtype;
+    uint16_t rtype;
     uint16_t rclass;
     uint32_t ttl;
     uint16_t rdlength;
@@ -187,16 +193,47 @@ dns_question_t* dns_get_question(dns_question_t *questions, uint16_t qdcount, ch
 
 /**
  * @brief Retrieve the IP addresses corresponding to a given domain name in a DNS Answers list.
- * 
+ *
  * Searches a DNS Answer list for a specific domain name and returns the corresponding IP address.
  * Processes each Answer recursively if the Answer Type is a CNAME.
- * 
+ *
  * @param answers DNS Answers list to search in
  * @param ancount number of Answers in the list
  * @param domain_name domain name to search for
  * @return struct ip_list representing the list of corresponding IP addresses
  */
 ip_list_t dns_get_ip_from_name(dns_resource_record_t *answers, uint16_t ancount, char *domain_name);
+
+
+///// COMMUNICATE /////
+
+/**
+ * @brief Convert domain name to message format.
+ *
+ * @param dst converted domain name
+ * @param src domain name to convert
+ */
+void dns_convert_qname(char *dst, char *src, uint16_t len);
+
+/**
+ * @brief Send a DNS query for the given domain name.
+ *
+ * @param qname domain name to query for
+ * @param sockfd socket file descriptor
+ * @param server_addr DNS server IPv4 address
+ * @return 0 if the query was sent successfully, -1 otherwise
+ */
+int dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr);
+
+/**
+ * @brief Receive a DNS response.
+ *
+ * @param sockfd socket file descriptor
+ * @param server_addr DNS server IPv4 address
+ * @param dns_message allocated buffer which will be filled with the DNS response message, upon success
+ * @return 0 if DNS response was received successfully, -1 otherwise
+ */
+int dns_receive_response(int sockfd, struct sockaddr_in *server_addr, dns_message_t *dns_message);
 
 
 ///// DESTROY /////

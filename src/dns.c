@@ -1,5 +1,6 @@
 /**
- * @file src/dns.c
+ * @file src/parsers/dns.c
+ * @author François De Keersmaeker (francois.dekeersmaeker@uclouvain.be)
  * @brief DNS message parser
  * @date 2022-09-09
  * 
@@ -8,6 +9,13 @@
  */
 
 #include "dns.h"
+
+// DNS message timeout
+#define TIMEOUT 5  // Timeout value, in seconds
+struct timeval timeout = {
+    .tv_sec = TIMEOUT,
+    .tv_usec = 0
+};
 
 
 ///// PARSING /////
@@ -191,7 +199,7 @@ dns_resource_record_t* dns_parse_rrs(uint16_t count, uint8_t *data, uint16_t *of
         // Parse domain name
         (rrs + i)->name = dns_parse_domain_name(data, offset);
         // Parse rtype, rclass and TTL
-        dns_rr_type_t rtype = ntohs(*((uint16_t *) (data + *offset)));
+        uint16_t rtype = ntohs(*((uint16_t *) (data + *offset)));
         (rrs + i)->rtype = rtype;
         (rrs + i)->rclass = ntohs(*((uint16_t *) (data + *offset + 2))) & DNS_CLASS_MASK;
         (rrs + i)->ttl = ntohl(*((uint32_t *) (data + *offset + 4)));
@@ -199,7 +207,7 @@ dns_resource_record_t* dns_parse_rrs(uint16_t count, uint8_t *data, uint16_t *of
         uint16_t rdlength = ntohs(*((uint16_t *) (data + *offset + 8)));
         (rrs + i)->rdlength = rdlength;
         *offset += 10;
-        (rrs + i)->rdata = dns_parse_rdata(rtype, rdlength, data, offset);
+        (rrs + i)->rdata = dns_parse_rdata((dns_rr_type_t) rtype, rdlength, data, offset);
     }
     return rrs;
 }
@@ -326,39 +334,48 @@ dns_question_t* dns_get_question(dns_question_t *questions, uint16_t qdcount, ch
 
 /**
  * @brief Retrieve the IP addresses corresponding to a given domain name in a DNS Answers list.
- * 
+ *
  * Searches a DNS Answer list for a specific domain name and returns the corresponding IP address.
  * Processes each Answer recursively if the Answer Type is a CNAME.
- * 
+ *
  * @param answers DNS Answers list to search in
  * @param ancount number of Answers in the list
  * @param domain_name domain name to search for
  * @return struct ip_list representing the list of corresponding IP addresses
  */
-ip_list_t dns_get_ip_from_name(dns_resource_record_t *answers, uint16_t ancount, char *domain_name) {
+ip_list_t dns_get_ip_from_name(dns_resource_record_t *answers, uint16_t ancount, char *domain_name)
+{
     ip_list_t ip_list;
     ip_list.ip_count = 0;
     ip_list.ip_addresses = NULL;
     char *cname = domain_name;
-    for (uint16_t i = 0; i < ancount; i++) {
-        if (strcmp((answers + i)->name, cname) == 0) {
+    for (uint16_t i = 0; i < ancount; i++)
+    {
+        if (strcmp((answers + i)->name, cname) == 0)
+        {
             dns_rr_type_t rtype = (answers + i)->rtype;
             if (rtype == A || rtype == AAAA)
             {
                 // Handle IP list length
-                if (ip_list.ip_addresses == NULL) {
-                    ip_list.ip_addresses = (ip_addr_t *) malloc(sizeof(ip_addr_t));
-                } else {
+                if (ip_list.ip_addresses == NULL)
+                {
+                    ip_list.ip_addresses = (ip_addr_t *)malloc(sizeof(ip_addr_t));
+                }
+                else
+                {
                     void *realloc_ptr = realloc(ip_list.ip_addresses, (ip_list.ip_count + 1) * sizeof(ip_addr_t));
-                    if (realloc_ptr == NULL) {
+                    if (realloc_ptr == NULL)
+                    {
                         // Handle realloc error
                         free(ip_list.ip_addresses);
                         fprintf(stderr, "Error reallocating memory for IP list.\n");
                         ip_list.ip_count = 0;
                         ip_list.ip_addresses = NULL;
                         return ip_list;
-                    } else {
-                        ip_list.ip_addresses = (ip_addr_t*) realloc_ptr;
+                    }
+                    else
+                    {
+                        ip_list.ip_addresses = (ip_addr_t *)realloc_ptr;
                     }
                 }
                 // Handle IP version and value
@@ -374,6 +391,152 @@ ip_list_t dns_get_ip_from_name(dns_resource_record_t *answers, uint16_t ancount,
     return ip_list;
 }
 
+
+///// COMMUNICATE /////
+
+/**
+ * @brief Convert domain name to message format.
+ *
+ * @param dst converted domain name
+ * @param src domain name to convert
+ */
+void dns_convert_qname(char *dst, char *src, uint16_t len) {
+    int lock = 0;  // Points to the next index to fill in the output array
+
+    // Start by iterating over each character in the input domain name
+    for (int i = 0; i < len; i++)
+    {
+        int segment_len = 0;  // Length of the current segment
+
+        // Count the length of the current segment until we hit a dot or the end of the string
+        while (*(src + i) != '.' && *(src + i) != '\0')
+        {
+            *(dst + lock + 1 + segment_len) = *(src + i);
+            segment_len++;
+            i++;
+        }
+
+        *(dst + lock) = segment_len;  // Prefix the segment with its length
+        lock += segment_len + 1;      // Move the index past the current segment
+    }
+
+    *(dst + lock) = '\0';  // Null terminate the DNS label format string
+}
+
+/**
+ * @brief Send a DNS query for the given domain name.
+ *
+ * @param qname domain name to query for
+ * @param sockfd socket file descriptor
+ * @param server_addr DNS server IPv4 address
+ */
+int dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr) {
+    // Buffer that will contain the message
+    uint16_t qname_len = strlen(qname);
+    uint16_t qname_labels_len = qname_len + sizeof(uint8_t) * 2;
+    uint16_t dns_questions_size = qname_labels_len + sizeof(uint16_t) * 2;
+    uint16_t dns_message_size = DNS_HEADER_SIZE + dns_questions_size;
+    uint8_t *buffer = (uint8_t *) malloc(dns_message_size);
+
+    // Populate DNS Header fields
+    dns_header_t dns_header;
+    dns_header.id      = htons((uint16_t) getpid());
+    dns_header.flags   = htons((uint16_t) (0b0000000100000000));
+    dns_header.qr = 0; // Query: qr = 0
+    dns_header.qdcount = htons((uint16_t) 1);  // Only 1 question
+    dns_header.ancount = 0;
+    dns_header.nscount = 0;
+    dns_header.arcount = 0;
+
+    // Populate DNS Question fields
+    dns_question_t dns_question;
+    dns_question.qname = (char *)malloc(qname_labels_len);
+    dns_convert_qname(dns_question.qname, qname, qname_len);
+    dns_question.qtype = htons((uint16_t) A);
+    dns_question.qclass = htons((uint16_t) 1);
+
+    // Copy all DNS fields
+    memcpy(buffer, &dns_header, sizeof(uint16_t) * 2);
+    memcpy(buffer + sizeof(uint16_t) * 2, &(dns_header.qdcount), sizeof(uint16_t) * 4);
+    memcpy(buffer + DNS_HEADER_SIZE, dns_question.qname, qname_labels_len);
+    memcpy(buffer + DNS_HEADER_SIZE + qname_labels_len, &(dns_question.qtype), sizeof(uint16_t) * 2);
+
+    // Set socket timeout
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("Error setting socket send timeout");
+        // Free memory
+        free(dns_question.qname);
+        free(buffer);
+        return -1;
+    }
+
+    // Send DNS message
+    #ifdef DEBUG
+    printf("Sending DNS query for domain name %s to server %s\n", qname, inet_ntoa(server_addr->sin_addr));
+    #endif /* DEBUG */
+    if (sendto(sockfd, buffer, dns_message_size, 0, (struct sockaddr *)server_addr, sizeof(*server_addr)) < 0)
+    {
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            printf("DNS query for %s timed out.\n", qname);
+        } else {
+            perror("Failed sending DNS query.");
+        }
+        // Free memory
+        free(dns_question.qname);
+        free(buffer);
+        return -1;
+    }
+
+    // DNS query was sent successfully
+    free(dns_question.qname);
+    free(buffer);
+    return 0;
+}
+
+/**
+ * @brief Receive a DNS response.
+ *
+ * @param sockfd socket file descriptor
+ * @param server_addr DNS server IPv4 address
+ * @param dns_message allocated buffer which will be filled with the DNS response message, upon success
+ * @return 0 if DNS response was received successfully, -1 otherwise
+ */
+int dns_receive_response(int sockfd, struct sockaddr_in *server_addr, dns_message_t* dns_message)
+{
+    // Receiving buffer
+    int bufsize = 65536;
+    uint8_t *buffer = (uint8_t *)malloc(bufsize);
+
+    // Set socket timeout
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("Error setting socket receive timeout");
+        free(buffer);
+        return -1;
+    }
+
+    // Await response
+    int n = recvfrom(sockfd, (char *)buffer, bufsize, 0, NULL, NULL);
+    if (n < 0)
+    {
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            printf("DNS receive timed out\n");
+        } else {
+            perror("Failed receiving DNS response.");
+        }
+        free(buffer);
+        return -1;
+    }
+
+    // DNS response was received successfully, parse it
+    *dns_message = dns_parse_message(buffer);
+
+    free(buffer);
+    return 0;
+}
 
 ///// DESTROY /////
 
@@ -410,7 +573,7 @@ static void dns_free_rrs(dns_resource_record_t *rrs, uint16_t count) {
             dns_resource_record_t rr = *(rrs + i);
             if (rr.rdlength > 0) {
                 free(rr.name);
-                dns_free_rdata(rr.rdata, rr.rtype);
+                dns_free_rdata(rr.rdata, (dns_rr_type_t) rr.rtype);
             }
         }
         free(rrs);
@@ -539,7 +702,7 @@ void dns_print_rr(char* section_name, dns_resource_record_t rr) {
     printf("    Class: %hd\n", rr.rclass);
     printf("    TTL [s]: %d\n", rr.ttl);
     printf("    Data length: %hd\n", rr.rdlength);
-    printf("    RDATA: %s\n", dns_rdata_to_str(rr.rtype, rr.rdlength, rr.rdata));
+    printf("    RDATA: %s\n", dns_rdata_to_str((dns_rr_type_t) rr.rtype, rr.rdlength, rr.rdata));
 }
 
 /**
