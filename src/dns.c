@@ -10,6 +10,13 @@
 
 #include "dns.h"
 
+// DNS message timeout
+#define TIMEOUT 5  // Timeout value, in seconds
+struct timeval timeout = {
+    .tv_sec = TIMEOUT,
+    .tv_usec = 0
+};
+
 
 ///// PARSING /////
 
@@ -423,7 +430,7 @@ void dns_convert_qname(char *dst, char *src, uint16_t len) {
  * @param sockfd socket file descriptor
  * @param server_addr DNS server IPv4 address
  */
-void dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr) {
+int dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr) {
     // Buffer that will contain the message
     uint16_t qname_len = strlen(qname);
     uint16_t qname_labels_len = qname_len + sizeof(uint8_t) * 2;
@@ -454,15 +461,38 @@ void dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr) {
     memcpy(buffer + DNS_HEADER_SIZE, dns_question.qname, qname_labels_len);
     memcpy(buffer + DNS_HEADER_SIZE + qname_labels_len, &(dns_question.qtype), sizeof(uint16_t) * 2);
 
-    // Send DNS message
-    if (sendto(sockfd, buffer, dns_message_size, 0, (struct sockaddr *)server_addr, sizeof(*server_addr)) < 0)
+    // Set socket timeout
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)
     {
-        perror("Failed sending DNS query.");
+        perror("Error setting socket send timeout");
+        // Free memory
+        free(dns_question.qname);
+        free(buffer);
+        return -1;
     }
 
-    // Free memory
+    // Send DNS message
+    #ifdef DEBUG
+    printf("Sending DNS query for domain name %s to server %s\n", qname, inet_ntoa(server_addr->sin_addr));
+    #endif /* DEBUG */
+    if (sendto(sockfd, buffer, dns_message_size, 0, (struct sockaddr *)server_addr, sizeof(*server_addr)) < 0)
+    {
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            printf("DNS query for %s timed out.\n", qname);
+        } else {
+            perror("Failed sending DNS query.");
+        }
+        // Free memory
+        free(dns_question.qname);
+        free(buffer);
+        return -1;
+    }
+
+    // DNS query was sent successfully
     free(dns_question.qname);
     free(buffer);
+    return 0;
 }
 
 /**
@@ -470,26 +500,38 @@ void dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr) {
  *
  * @param sockfd socket file descriptor
  * @param server_addr DNS server IPv4 address
- * @return received DNS message
+ * @param dns_message allocated buffer which will be filled with the DNS response message, upon success
+ * @return 0 if DNS response was received successfully, -1 otherwise
  */
-dns_message_t dns_receive_response(int sockfd, struct sockaddr_in *server_addr)
+int dns_receive_response(int sockfd, struct sockaddr_in *server_addr, dns_message_t* dns_message)
 {
     // Receiving buffer
     int bufsize = 65536;
     uint8_t *buffer = (uint8_t *)malloc(bufsize);
 
+    // Set socket timeout
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("Error setting socket receive timeout");
+        return -1;
+    }
+
     // Await response
     int n = recvfrom(sockfd, (char *)buffer, bufsize, 0, NULL, NULL);
     if (n < 0)
     {
-        perror("Failed receiving DNS response.");
-        exit(-1);
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            printf("DNS receive timed out\n");
+        } else {
+            perror("Failed receiving DNS response.");
+        }
+        return -1;
     }
 
-    // Parse received DNS message
-    dns_message_t dns_message = dns_parse_message(buffer);
-    free(buffer);
-    return dns_message;
+    // DNS response was received successfully, parse it
+    *dns_message = dns_parse_message(buffer);
+    return 0;
 }
 
 ///// DESTROY /////

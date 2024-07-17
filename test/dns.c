@@ -340,11 +340,14 @@ void test_dns_office() {
  * @brief Test the `dns_send_query` and `dns_receive_response` functions.
  */
 void test_dns_send_receive() {
-    /* Initialize */
+    // Initialize
+    int ret;
     char *domain_name = "www.google.com";
+
     // Open socket
     int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     CU_ASSERT_TRUE(sockfd > 0);
+    
     // Server address: network gateway
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
@@ -353,14 +356,17 @@ void test_dns_send_receive() {
     server_addr.sin_addr.s_addr = inet_addr("8.8.8.8");
 
     // Send query for dummy domain name
-    dns_send_query(domain_name, sockfd, &server_addr);
-    dns_message_t dns_message = dns_receive_response(sockfd, &server_addr);
+    ret = dns_send_query(domain_name, sockfd, &server_addr);
+    CU_ASSERT_EQUAL(ret, 0);
 
-    // Verify DNS response's domain name
-    CU_ASSERT_STRING_EQUAL(dns_message.questions->qname, domain_name);
+    // Receive response
+    dns_message_t dns_response;
+    ret = dns_receive_response(sockfd, &server_addr, &dns_response);
+    CU_ASSERT_EQUAL(ret ,0);
+    CU_ASSERT_STRING_EQUAL(dns_response.questions->qname, domain_name);
 
     // Free memory
-    dns_free_message(dns_message);
+    dns_free_message(dns_response);
 }
 
 /**

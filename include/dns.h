@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -219,16 +221,19 @@ void dns_convert_qname(char *dst, char *src, uint16_t len);
  * @param qname domain name to query for
  * @param sockfd socket file descriptor
  * @param server_addr DNS server IPv4 address
+ * @return 0 if the query was sent successfully, -1 otherwise
  */
-void dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr);
+int dns_send_query(char *qname, int sockfd, struct sockaddr_in *server_addr);
 
 /**
- * @brief Receive a DNS response
+ * @brief Receive a DNS response.
  *
  * @param sockfd socket file descriptor
  * @param server_addr DNS server IPv4 address
+ * @param dns_message allocated buffer which will be filled with the DNS response message, upon success
+ * @return 0 if DNS response was received successfully, -1 otherwise
  */
-dns_message_t dns_receive_response(int sockfd, struct sockaddr_in *server_addr);
+int dns_receive_response(int sockfd, struct sockaddr_in *server_addr, dns_message_t *dns_message);
 
 
 ///// DESTROY /////
