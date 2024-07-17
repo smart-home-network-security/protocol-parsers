@@ -513,6 +513,7 @@ int dns_receive_response(int sockfd, struct sockaddr_in *server_addr, dns_messag
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
     {
         perror("Error setting socket receive timeout");
+        free(buffer);
         return -1;
     }
 
@@ -526,11 +527,14 @@ int dns_receive_response(int sockfd, struct sockaddr_in *server_addr, dns_messag
         } else {
             perror("Failed receiving DNS response.");
         }
+        free(buffer);
         return -1;
     }
 
     // DNS response was received successfully, parse it
     *dns_message = dns_parse_message(buffer);
+
+    free(buffer);
     return 0;
 }
 
