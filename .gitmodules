@@ -1,3 +1,0 @@
-[submodule "src/hashmap"]
-	path = src/hashmap
-	url = git@github.com:fdekeers/hashmap.c.git
