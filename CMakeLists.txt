@@ -26,11 +26,8 @@ add_compile_options(-Wall -Werror -Wno-unused-variable -O3)           # Producti
 #add_compile_options(-Wall -Werror -Wno-unused-variable -g)  # Without debug logging
 #add_compile_options(-Wall -Werror -Wno-unused-variable -DDEBUG -g)  # With debug logging
 
-# Custom parsers
-set(PARSERS header dns dhcp http igmp ssdp coap)
-
 # Subdirectories containing code
 add_subdirectory(src)
-IF( NOT OPENWRT_CROSSCOMPILING )
+IF( NOT (NO_TEST OR OPENWRT_CROSSCOMPILING) )
     add_subdirectory(test)
 ENDIF()
