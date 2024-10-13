@@ -1,7 +1,7 @@
 EXITCODE=0
-VALGRIND_SUPP="$GITHUB_WORKSPACE/.ci_scripts/valgrind.supp"
+VALGRIND_SUPP=".ci_scripts/valgrind.supp"
 
-for file in $GITHUB_WORKSPACE/bin/test/*
+for file in bin/test/*
 do
     if [[ $# -eq 1 && $1 == valgrind ]]
     then
