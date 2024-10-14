@@ -1,0 +1,11 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+
+test-job:
+  script:
+    - sudo .ci_scripts/install_packages.sh  # Install required packages
+    - .ci_scripts/build.sh                  # Build project with CMake
+    - .ci_scripts/run_tests.sh              # Run CUnit tests
+    - .ci_scripts/run_tests.sh valgrind     # Run Valgrind on CUnit tests
+    - .ci_scripts/run_cppcheck.sh           # Run cppcheck on source files
