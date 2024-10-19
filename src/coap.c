@@ -146,6 +146,20 @@ coap_message_t coap_parse_message(uint8_t *data, uint16_t length)
     return message;
 }
 
+/**
+ * @brief Check if a CoAP message is a request.
+ * 
+ * A CoAP message is a request if its type is Confirmable or Non-Confirmable.
+ *
+ * @param coap_message CoAP message to check
+ * @return true if the given CoAP message is a request
+ * @return false if the given CoAP message is a response
+ */
+bool coap_is_request(coap_message_t coap_message)
+{
+    return coap_message.type == COAP_CON || coap_message.type == COAP_NON;
+}
+
 
 ///// DESTROY /////
 

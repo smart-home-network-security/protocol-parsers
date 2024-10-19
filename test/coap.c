@@ -45,6 +45,7 @@ void test_coap_non_get() {
     expected.uri = "/oic/res?rt=x.com.samsung.provisioninginfo";
 
     // Compare messages
+    CU_ASSERT_TRUE(coap_is_request(actual));
     CU_ASSERT_EQUAL(actual.type, expected.type);
     CU_ASSERT_EQUAL(actual.method, expected.method);
     CU_ASSERT_STRING_EQUAL(actual.uri, expected.uri);
