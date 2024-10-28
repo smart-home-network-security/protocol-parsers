@@ -143,8 +143,28 @@ dns_question_t* dns_parse_questions(uint16_t qdcount, uint8_t *data, uint16_t *o
 }
 
 /**
+ * @brief Parse the RDATA field of a SRV DNS Resource Record.
+ *
+ * @param rdlength the length, in bytes, of the RDATA field
+ * @param data pointer to the start of the DNS message
+ * @param offset pointer to the current parsing offset
+ * @return the parsed SRV RDATA field
+ */
+srv_data_t dns_parse_srv_data(uint8_t *data, uint16_t *offset)
+{
+    srv_data_t srv_data;
+    srv_data.priority = ntohs(*((uint16_t *) (data + *offset)));
+    srv_data.weight = ntohs(*((uint16_t *) (data + *offset + 2)));
+    srv_data.port = ntohs(*((uint16_t *) (data + *offset + 4)));
+    *offset += 6;
+    srv_data.target = dns_parse_domain_name(data, offset);
+    return srv_data;
+}
+
+/**
  * Parse a DNS Resource Record RDATA field.
  * 
+ * @param rtype Resource Record type
  * @param rdlength the length, in bytes, of the RDATA field
  * @param data a pointer pointing to the start of the DNS message
  * @param offset a pointer to the current parsing offset
@@ -173,8 +193,12 @@ static rdata_t dns_parse_rdata(dns_rr_type_t rtype, uint16_t rdlength, uint8_t *
         case NS:
         case CNAME:
         case PTR:
-            // RDATA contains is a domain name
+            // RDATA contains a domain name
             rdata.domain_name = dns_parse_domain_name(data, offset);
+            break;
+        case SRV:
+            // RDATA contains SRV data
+            rdata.srv_data = dns_parse_srv_data(data, offset);
             break;
         default:
             // RDATA contains is generic data
@@ -556,6 +580,9 @@ static void dns_free_rdata(rdata_t rdata, dns_rr_type_t rtype) {
     case PTR:
         free(rdata.domain_name);
         break;
+    case SRV:
+        free(rdata.srv_data.target);
+        break;
     default:
         free(rdata.data);
     }
@@ -678,6 +705,10 @@ char* dns_rdata_to_str(dns_rr_type_t rtype, uint16_t rdlength, rdata_t rdata) {
         case PTR:
             // RDATA is a domain name
             return rdata.domain_name;
+            break;
+        case SRV:
+            // RDATA is SRV data
+            return rdata.srv_data.target;
             break;
         default: ;
             // Generic RDATA

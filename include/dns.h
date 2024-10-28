@@ -83,12 +83,24 @@ typedef struct dns_question {
 } dns_question_t;
 
 /**
+ * @brief RDATA field of a DNS SRV Resource Record
+ * 
+ */
+typedef struct srv_data {
+    uint16_t priority;
+    uint16_t weight;
+    uint16_t port;
+    char *target;
+} srv_data_t;
+
+/**
  * RDATA field of a DNS Resource Record
  */
 typedef union {
-    char *domain_name;  // Domain name, character string
-    ip_addr_t ip;       // IP (v4 or v6) address
-    uint8_t *data;      // Generic data, series of bytes
+    char *domain_name;    // Domain name, character string
+    ip_addr_t ip;         // IP (v4 or v6) address
+    srv_data_t srv_data;  // SRV data
+    uint8_t *data;        // Generic data, series of bytes
 } rdata_t;
 
 /**
