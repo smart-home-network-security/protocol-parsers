@@ -55,6 +55,7 @@ typedef enum {
     MX    = 15,
     TXT   = 16,
     AAAA  = 28,
+    SRV   = 33,
     OPT   = 41,  // Used to specify extensions
     ANY   = 255  // Used to query any type
 } dns_rr_type_t;
