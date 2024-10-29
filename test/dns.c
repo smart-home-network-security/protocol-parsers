@@ -118,7 +118,7 @@ void test_dns_xiaomi() {
     dns_question_t *expected_question;
     expected_question = malloc(sizeof(dns_question_t) * message.header.qdcount);
     expected_question->qname = "business.smartcamera.api.io.mi.com";
-    expected_question->qtype = 1;
+    expected_question->qtype = A;
     expected_question->qclass = 1;
     compare_questions(message.header.qdcount, message.questions, expected_question);
     free(expected_question);
@@ -128,7 +128,7 @@ void test_dns_xiaomi() {
     expected_answer = malloc(sizeof(dns_resource_record_t) * message.header.ancount);
     // Answer n°0
     expected_answer->name = "business.smartcamera.api.io.mi.com";
-    expected_answer->rtype = 5;
+    expected_answer->rtype = CNAME;
     expected_answer->rclass = 1;
     expected_answer->ttl = 600;
     expected_answer->rdlength = 37;
@@ -213,7 +213,7 @@ void test_dns_office() {
     dns_question_t *expected_question;
     expected_question = malloc(sizeof(dns_question_t) * message.header.qdcount);
     expected_question->qname = "outlook.office.com";
-    expected_question->qtype = 1;
+    expected_question->qtype = A;
     expected_question->qclass = 1;
     compare_questions(message.header.qdcount, message.questions, expected_question);
     free(expected_question);
@@ -335,6 +335,77 @@ void test_dns_office() {
     // Free memory
     dns_free_message(message);
 }
+
+
+/**
+ * @brief Test the DNS parser with a DNS SRV response.
+ */
+void test_srv_response() {
+
+    char *hexstring = "450000781c4640004011b861c0000201cb00710500353039006400000003818000010001000000001a5f786d70702d736572766572045f746370076578616d706c6503636f6d0000210001c00c0021000100000e10000f0005000a148b05786d707031076578616d706c6503636f6d00 ";
+
+    uint8_t *payload;
+    size_t length = hexstr_to_payload(hexstring, &payload);
+    CU_ASSERT_EQUAL(length, strlen(hexstring) / 2); // Verify message length
+
+    size_t skipped = get_headers_length(payload);
+    dns_message_t message = dns_parse_message(payload + skipped);
+    free(payload);
+
+
+    /* Test different sections of the DNS message */
+
+    // Header
+    dns_header_t expected_header;
+    expected_header.id = 3;
+    expected_header.flags = 0x8180;
+    expected_header.qr = 1;
+    expected_header.qdcount = 1;
+    expected_header.ancount = 1;
+    expected_header.nscount = 0;
+    expected_header.arcount = 0;
+    compare_headers(message.header, expected_header);
+
+    // Questions
+    dns_question_t *expected_question;
+    expected_question = malloc(sizeof(dns_question_t) * message.header.qdcount);
+    expected_question->qname = "_xmpp-server._tcp.example.com";
+    expected_question->qtype = SRV;
+    expected_question->qclass = 1;
+    compare_questions(message.header.qdcount, message.questions, expected_question);
+    free(expected_question);
+
+    // Answers
+    dns_resource_record_t *expected_answer;
+    expected_answer = malloc(sizeof(dns_resource_record_t) * message.header.ancount);
+    expected_answer->name = "_xmpp-server._tcp.example.com";
+    expected_answer->rtype = SRV;
+    expected_answer->rclass = 1;
+    expected_answer->ttl = 3600;
+    expected_answer->rdlength = 15;
+    expected_answer->rdata.srv_data.priority = 5;
+    expected_answer->rdata.srv_data.weight = 10;
+    expected_answer->rdata.srv_data.port = 5269;
+    expected_answer->rdata.srv_data.target = "xmpp1.example.com";
+    compare_rrs(message.header.ancount, message.answers, expected_answer);
+    free(expected_answer);
+
+
+    /* Lookup functions */
+
+    // Get question from domain name
+    char *domain_name = "_xmpp-server._tcp.example.com";
+    dns_question_t *question_lookup = dns_get_question(message.questions, message.header.qdcount, domain_name);
+    CU_ASSERT_PTR_NOT_NULL(question_lookup);
+    domain_name = "swag.framinem.org";
+    question_lookup = dns_get_question(message.questions, message.header.qdcount, domain_name);
+    CU_ASSERT_PTR_NULL(question_lookup);
+
+
+    // Free memory
+    dns_free_message(message);
+}
+
 
 /**
  * @brief Test the `dns_send_query` and `dns_receive_response` functions.
