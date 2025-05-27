@@ -83,7 +83,6 @@ static http_method_t http_parse_method(uint8_t *data, uint16_t *offset) {
  * @brief Check if a TCP message is a HTTP message.
  *
  * @param data pointer to the start of the TCP payload
- * @param dst_port TCP destination port
  * @return true if the message is a HTTP message
  * @return false if the message is not a HTTP message
  */

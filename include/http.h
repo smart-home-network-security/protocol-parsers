@@ -54,7 +54,6 @@ typedef struct http_message {
  * @brief Check if a TCP message is a HTTP message.
  * 
  * @param data pointer to the start of the TCP payload
- * @param dst_port TCP destination port
  * @return true if the message is a HTTP message
  * @return false if the message is not a HTTP message
  */
@@ -64,7 +63,7 @@ bool is_http(uint8_t *data);
  * @brief Parse the method and URI of HTTP message.
  * 
  * @param data pointer to the start of the HTTP message
- * @param src_port TCP destination port
+ * @param dst_port TCP destination port
  * @return the parsed HTTP message
  */
 http_message_t http_parse_message(uint8_t *data, uint16_t dst_port);

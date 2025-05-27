@@ -71,6 +71,22 @@ target_link_libraries(coap-test packet_utils)
 target_link_libraries(coap-test header coap)
 install(TARGETS coap-test DESTINATION ${TEST_BIN_DIR})
 
+# TLS
+add_executable(tls-test tls.c)
+target_include_directories(tls-test PRIVATE ${INCLUDE_DIR})
+target_link_libraries(tls-test cunit)
+target_link_libraries(tls-test packet_utils)
+target_link_libraries(tls-test header tls)
+install(TARGETS tls-test DESTINATION ${TEST_BIN_DIR})
+
+# MQTT
+add_executable(mqtt-test mqtt.c)
+target_include_directories(mqtt-test PRIVATE ${INCLUDE_DIR})
+target_link_libraries(mqtt-test cunit)
+target_link_libraries(mqtt-test packet_utils)
+target_link_libraries(mqtt-test header mqtt)
+install(TARGETS mqtt-test DESTINATION ${TEST_BIN_DIR})
+
 
 ## DNS map
 add_executable(dns_map-test dns_map.c)

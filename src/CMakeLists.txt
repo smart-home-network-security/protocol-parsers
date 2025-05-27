@@ -49,6 +49,12 @@ add_library(coap STATIC ${INCLUDE_DIR}/coap.h coap.c)
 target_include_directories(coap PRIVATE ${INCLUDE_DIR} ${INCLUDE_DIR})
 target_link_libraries(coap http)
 install(TARGETS coap DESTINATION ${LIB_DIR})
+# TLS parser
+add_library(tls STATIC ${INCLUDE_PARSERS_DIR}/tls.h tls.c)
+target_include_directories(tls PRIVATE ${INCLUDE_DIR} ${INCLUDE_PARSERS_DIR})
+# MQTT parser
+add_library(mqtt STATIC ${INCLUDE_PARSERS_DIR}/mqtt.h mqtt.c)
+target_include_directories(mqtt PRIVATE ${INCLUDE_DIR} ${INCLUDE_PARSERS_DIR})
 
 # DNS map
 add_library(dns_map STATIC ${INCLUDE_DIR}/dns_map.h dns_map.c)
