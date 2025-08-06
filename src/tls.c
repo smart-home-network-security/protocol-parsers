@@ -472,7 +472,7 @@ void tls_free_packet(tls_packet_t* packet) {
 void tls_print_message(tls_message_t message) {
     printf("TLS Message:\n");
     printf("  Content Type: %d\n", message.content_type);
-    char* tls_version;
+    char* tls_version = "TLS 1.0";  // Default value
     switch (message.tls_version)
     {
     case TLS_VERSION_1_0:
