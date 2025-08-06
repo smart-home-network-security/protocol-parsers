@@ -1,0 +1,29 @@
+name: test-build
+on: [push]
+
+
+jobs:
+
+  native-build:
+    runs-on: ubuntu-latest
+    steps:
+    
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install packages
+        run: sudo .ci_scripts/install_packages.sh
+      
+      - name: Build project
+        run: ./build.sh
+      
+      - name: Run unit tests
+        run: .ci_scripts/run_tests.sh
+
+      - name: Run unit tests with Valgrind
+        run: .ci_scripts/run_tests.sh valgrind
+      
+      - name: Run Cppcheck
+        run: .ci_scripts/run_cppcheck.sh
