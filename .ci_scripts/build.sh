@@ -36,12 +36,7 @@ then
 fi
 
 # Clean directory
-SUDO_PREFIX=""
-if [[ $(whoami) != "root" ]]
-then
-    SUDO_PREFIX="sudo"
-fi
-$SUDO_PREFIX rm -rf build bin
+rm -rf build bin
 
 # Build project
 mkdir build bin

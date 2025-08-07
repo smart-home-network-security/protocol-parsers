@@ -73,6 +73,8 @@ void test_is_not_tls() {
     CU_ASSERT_EQUAL(length, strlen(hexstring) / 2);
 
     CU_ASSERT_EQUAL(is_tls(payload), false);
+    
+    free(payload);
 
     // ICMPv6 Neighbor Solicitation
     hexstring = "6466b3f66852d052a872aa2786dd6000000000203afffe80000000000000d252a8fffe72aa27fddded18f05b0000000000000000000187007ba100000000fddded18f05b000000000000000000010101d052a872aa27";
@@ -606,6 +608,7 @@ void test_tls_multiple_records_with_change_cipher_spec() {
     compare_fields(second_expected, packet->messages->next->message);
     
     tls_free_packet(packet);
+    tls_free_buffer();
     free(payload);
 }
 
@@ -696,6 +699,7 @@ void test_tls_multiple_records_with_certificate() {
     compare_fields(third_expected, packet->messages->next->next->message);
     
     tls_free_packet(packet);
+    tls_free_buffer();
     free(payload);
 }
 
@@ -736,6 +740,7 @@ void test_tls_real_fragmented_certificate_sequence() {
     }
 
     free(shd);
+    tls_free_buffer();
     free(payload_shd);
 }
 

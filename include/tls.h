@@ -18,7 +18,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-#define TLS_SUPPORTED_VERSIONS 0x002b // assigned value for extension "Supported Versions"
+#define TLS_SUPPORTED_VERSIONS 0x002b  // assigned value for extension "Supported Versions"
+#define TLS_MAX_RECORD_SIZE 16384      // Maximum size of a TLS record (16 KB)
 
 /**
  * TLS content types
@@ -134,6 +135,18 @@ tls_packet_t* tls_parse_packet(uint8_t* data, size_t packet_length);
  *       as it points to deallocated memory.
  */
 void tls_free_packet(tls_packet_t* packet);
+
+/**
+ * @brief Free the static TLS record buffer.
+ * 
+ * This function deallocates the memory used by the static TLS record buffer
+ * and resets the buffer pointer to NULL. It should be called when the buffer
+ * is no longer needed to avoid memory leaks.
+ * 
+ * @note After calling this function, any further attempts to use the buffer
+ *       will result in a new buffer being created on the next call to tls_parse_packet().
+ */
+void tls_free_buffer(void);
 
 /**
  * @brief Print formatted details of a TLS message to standard output.

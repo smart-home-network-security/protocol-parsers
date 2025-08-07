@@ -8,7 +8,9 @@
 
 #include "tls.h"
 
-// #define PRINT_VALUES
+// Static buffer for reassembling fragmented TLS records
+static tls_record_buffer_t* buffer = NULL;
+
 
 /** @brief Check if a TCP message is a TLS message.
  * 
@@ -306,19 +308,14 @@ tls_message_t tls_parse_message(uint8_t *data) {
  * 
  * Allocates memory for a new TLS record buffer with the default capacity 
  * of 16384 bytes (maximum TLS record size).
- * 
- * @return tls_record_buffer_t* Pointer to the newly created buffer, or NULL if 
- *         memory allocation failed.
  */
-tls_record_buffer_t* tls_buffer_create(void) {
-    tls_record_buffer_t* buffer = malloc(sizeof(tls_record_buffer_t));
-    if (!buffer) return NULL;
+static void tls_buffer_create(void) {
+    buffer = malloc(sizeof(tls_record_buffer_t));
+    if (!buffer) return;  // Memory allocation failed
     
-    buffer->data = malloc(16384); // Max TLS record size
+    buffer->data = malloc(TLS_MAX_RECORD_SIZE);
     buffer->length = 0;
-    buffer->capacity = 16384;
-    
-    return buffer;
+    buffer->capacity = TLS_MAX_RECORD_SIZE;
 }
 
 /**
@@ -328,11 +325,10 @@ tls_record_buffer_t* tls_buffer_create(void) {
  * enough capacity to store the new data, the function will return without 
  * appending anything.
  * 
- * @param buffer Pointer to the TLS record buffer
  * @param data Pointer to the data to append
  * @param length Number of bytes to append
  */
-void tls_buffer_append(tls_record_buffer_t* buffer, const uint8_t* data, size_t length) {
+static void tls_buffer_append(const uint8_t* data, size_t length) {
     if (buffer->length + length > buffer->capacity) {
         return; // Buffer full
     }
@@ -361,15 +357,13 @@ void tls_buffer_append(tls_record_buffer_t* buffer, const uint8_t* data, size_t 
  *       The buffer is initialized on the first call.
  */
 tls_packet_t* tls_parse_packet(uint8_t* data, size_t packet_length) {
-    static tls_record_buffer_t* buffer = NULL;
-    
     // Initialize buffer if needed
     if (!buffer) {
-        buffer = tls_buffer_create();
+        tls_buffer_create();
     }
     
     // Append new data
-    tls_buffer_append(buffer, data, packet_length);
+    tls_buffer_append(data, packet_length);
     
     // Try to parse complete records
     tls_packet_t* packet = malloc(sizeof(tls_packet_t));
@@ -449,6 +443,24 @@ void tls_free_packet(tls_packet_t* packet) {
     }
     
     free(packet);
+}
+
+/**
+ * @brief Free the static TLS record buffer.
+ * 
+ * This function deallocates the memory used by the static TLS record buffer
+ * and resets the buffer pointer to NULL. It should be called when the buffer
+ * is no longer needed to avoid memory leaks.
+ * 
+ * @note After calling this function, any further attempts to use the buffer
+ *       will result in a new buffer being created on the next call to tls_parse_packet().
+ */
+void tls_free_buffer(void) {
+    if (buffer) {
+        free(buffer->data);
+        free(buffer);
+        buffer = NULL; // Reset the buffer pointer
+    }
 }
 
 
