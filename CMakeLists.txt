@@ -28,6 +28,6 @@ add_compile_options(-Wall -Werror -Wno-unused-variable -O3)           # Producti
 
 # Subdirectories containing code
 add_subdirectory(src)
-IF( NOT (NO_TEST OR OPENWRT_CROSSCOMPILING) )
+IF( DO_TESTS AND NOT OPENWRT_CROSSCOMPILING )
     add_subdirectory(test)
 ENDIF()
