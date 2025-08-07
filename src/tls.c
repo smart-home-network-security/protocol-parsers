@@ -96,9 +96,9 @@ tls_version_t get_tls_version(uint8_t* data) {
  * thus it does not indicate the entire length of the data payload.
  * 
  * @param data pointer to the start of the TLS message
- * @return u_int16_t the length of the record
+ * @return uint16_t the length of the record
  */
-u_int16_t get_record_length(uint8_t* data) {
+uint16_t get_record_length(uint8_t* data) {
     return (*(data + 3) << 8) | *(data + 4);
 }
 
@@ -144,7 +144,7 @@ tls_version_t parse_tls_1_3(uint8_t* data, tls_handshake_type_t message_type, ui
     offset += 1 + 3 + 2 + 32; // Handshake Type (1 byte) + length (3 bytes) + version (2 bytes) + random (32 bytes) 
     offset += 1; // session ID length
     
-    u_int8_t session_id_length = data[offset];
+    uint8_t session_id_length = data[offset];
     offset += 1;
     offset += session_id_length;
 
