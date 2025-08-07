@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
 
-  native-build:
+  test-build:
     runs-on: ubuntu-latest
     steps:
     
